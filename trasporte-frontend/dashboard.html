@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard - Transporte</title>
+
+  <style>
+    :root {
+      --accent:#2b7a78;
+      --muted:#f4f7f7;
+      --card:#ffffff;
+    }
+
+    * { box-sizing:border-box; font-family: Arial, Helvetica, sans-serif }
+
+    body {
+      margin:0;
+      background:var(--muted);
+      display:flex;
+      height:100vh;
+      color:#123;
+    }
+
+    nav {
+      width:230px;
+      background:var(--accent);
+      color:white;
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    nav h2 { margin:0 0 10px 0; }
+
+    .menu-btn {
+      background:transparent;
+      border:none;
+      color:white;
+      padding:10px;
+      text-align:left;
+      border-radius:8px;
+      cursor:pointer;
+    }
+
+    .menu-btn.active {
+      background:rgba(255,255,255,0.2);
+    }
+
+    main {
+      flex:1;
+      padding:20px;
+      overflow:auto;
+    }
+
+    .card {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.1);
+    }
+
+    table {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:20px;
+    }
+
+    th, td {
+      border-bottom:1px solid #ddd;
+      padding:10px;
+    }
+
+    button.primary {
+      background:var(--accent);
+      border:none;
+      padding:10px 14px;
+      color:white;
+      border-radius:6px;
+      cursor:pointer;
+    }
+
+    .hidden { display:none; }
+
+    input, select {
+      width:100%;
+      padding:8px;
+      border:1px solid #ddd;
+      border-radius:6px;
+    }
+
+    .form-row { margin-bottom:12px; }
+  </style>
+</head>
+
+<body>
+
+  <nav>
+    <h2>Transporte</h2>
+    <div id="userInfo" class="muted"></div>
+
+    <button class="menu-btn active" data-entity="usuarios">Usuários</button>
+    <button class="menu-btn" data-entity="grupos">Grupos</button>
+    <button class="menu-btn" data-entity="motoristas">Motoristas</button>
+    <button class="menu-btn" data-entity="veiculos">Veículos</button>
+    <button class="menu-btn" data-entity="rotas">Rotas</button>
+    <button class="menu-btn" data-entity="passageiros">Passageiros</button>
+    <button class="menu-btn" data-entity="viagens">Viagens</button>
+    <button class="menu-btn" data-entity="avaliacoes">Avaliações</button>
+  </nav>
+
+  <main>
+    <div class="card">
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="title">Usuários</h3>
+        <button id="newBtn" class="primary">Novo</button>
+      </div>
+
+      <div id="tableWrap">
+        <table id="dataTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="formWrap" class="hidden">
+        <form id="entityForm">
+          <div id="formFields"></div>
+          <button type="submit" class="primary">Salvar</button>
+          <button type="button" id="cancelBtn">Cancelar</button>
+        </form>
+      </div>
+
+    </div>
+  </main>
+
+<script>
+const API_URL = "http://localhost:8080";
+
+document.getElementById("userInfo").textContent =
+  "Usuário: " + (JSON.parse(localStorage.getItem("usuario"))?.nome || "Desconhecido");
+
+const ENTITIES = {
+
+  usuarios: {
+    title:"Usuários",
+    endpoint:"usuarios",
+    columns:["id","nome","email","idGrupo"],
+    headers:["ID","Nome","Email","Grupo"],
+    form:[
+      {name:"nome",label:"Nome",type:"text"},
+      {name:"email",label:"Email",type:"email"},
+      {name:"senha",label:"Senha",type:"password"},
+      {name:"idGrupo",label:"Grupo",type:"text"}
+    ]
+  },
+
+  grupos: {
+    title:"Grupos",
+    endpoint:"grupos",
+    columns:["idGrupo","nomeGrupo","descricao"],
+    headers:["ID","Nome","Descrição"],
+    form:[
+      {name:"nomeGrupo",label:"Nome",type:"text"},
+      {name:"descricao",label:"Descrição",type:"text"}
+    ]
+  },
+
+  motoristas: {
+    title:"Motoristas",
+    endpoint:"motoristas",
+    columns:["id","nome","cnh","telefone","status"],
+    headers:["ID","Nome","CNH","Telefone","Status"],
+    form:[
+      {name:"nome",label:"Nome",type:"text"},
+      {name:"cnh",label:"CNH",type:"text"},
+      {name:"telefone",label:"Telefone",type:"text"},
+      {name:"status",label:"Status",type:"text"}
+    ]
+  },
+
+  veiculos: {
+    title:"Veículos",
+    endpoint:"veiculos",
+    columns:["id","modelo","placa","capacidade","status"],
+    headers:["ID","Modelo","Placa","Capacidade","Status"],
+    form:[
+      {name:"modelo",label:"Modelo",type:"text"},
+      {name:"placa",label:"Placa",type:"text"},
+      {name:"capacidade",label:"Capacidade",type:"number"},
+      {name:"status",label:"Status",type:"text"}
+    ]
+  },
+
+  rotas: {
+    title:"Rotas",
+    endpoint:"rotas",
+    columns:["id","origem","destino","distanciaKm"],
+    headers:["ID","Origem","Destino","Distância"],
+    form:[
+      {name:"origem",label:"Origem",type:"text"},
+      {name:"destino",label:"Destino",type:"text"},
+      {name:"distanciaKm",label:"Distância (Km)",type:"number"}
+    ]
+  },
+
+  passageiros: {
+    title:"Passageiros",
+    endpoint:"passageiros",
+    columns:["id","nome","cpf","telefone","status"],
+    headers:["ID","Nome","CPF","Telefone","Status"],
+    form:[
+      {name:"nome",label:"Nome",type:"text"},
+      {name:"cpf",label:"CPF",type:"text"},
+      {name:"telefone",label:"Telefone",type:"text"},
+      {name:"status",label:"Status",type:"text"}
+    ]
+  },
+
+  viagens: {
+    title:"Viagens",
+    endpoint:"viagens",
+    columns:["id","motorista","veiculo","rota","usuario","status"],
+    headers:["ID","Motorista","Veículo","Rota","Usuário","Status"],
+    form:[
+      {name:"motorista",label:"Motorista",type:"select"},
+      {name:"veiculo",label:"Veículo",type:"select"},
+      {name:"rota",label:"Rota",type:"select"},
+      {name:"usuario",label:"Usuário",type:"select"},
+      {name:"status",label:"Status",type:"text"}
+    ]
+  },
+
+  avaliacoes: {
+    title:"Avaliações (NoSQL)",
+    endpoint:"avaliacoes",
+    columns:["nomeMotorista","nomePassageiro","nota","comentario","data"],
+    headers:["Motorista","Passageiro","Nota","Comentário","Data"],
+    form:[
+      {name:"motoristaId",label:"Motorista",type:"select"},
+      {name:"passageiroId",label:"Passageiro",type:"select"},
+      {name:"nota",label:"Nota (1-5)",type:"number"},
+      {name:"comentario",label:"Comentário",type:"text"}
+    ]
+  }
+};
+
+let current = "usuarios";
+
+// MENU
+document.querySelectorAll(".menu-btn").forEach(btn =>
+  btn.onclick = () => {
+    document.querySelectorAll(".menu-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    loadEntity(btn.dataset.entity);
+  }
+);
+
+// CARREGAR LISTA
+async function loadEntity(entity) {
+  current = entity;
+  const meta = ENTITIES[entity];
+  document.getElementById("title").textContent = meta.title;
+
+  hideForm();
+
+  const res = await fetch(`${API_URL}/${meta.endpoint}`);
+  const data = await res.json();
+
+  renderTable(data);
+}
+
+// RENDER TABELA
+function renderTable(data) {
+  const meta = ENTITIES[current];
+  const thead = document.querySelector("#dataTable thead");
+  const tbody = document.querySelector("#dataTable tbody");
+
+  thead.innerHTML =
+    "<tr>" + meta.headers.map(h => `<th>${h}</th>`).join("") +
+    (current === "avaliacoes" ? "" : "<th>Ações</th>") +
+    "</tr>";
+
+  tbody.innerHTML = data.map(item => {
+    let cells = "";
+
+    meta.columns.forEach(col => {
+      let value = item[col];
+
+      if (typeof value === "object" && value !== null) {
+        value = value.nome || value.email || value.modelo || value.origem || JSON.stringify(value);
+      }
+
+      cells += `<td>${value ?? ""}</td>`;
+    });
+
+    if (current === "avaliacoes") return `<tr>${cells}</tr>`;
+
+    return `
+      <tr>
+        ${cells}
+        <td><button onclick="deleteEntity('${item.id || item.idGrupo}')">Excluir</button></td>
+      </tr>`;
+  }).join("");
+}
+
+// FORMULÁRIO
+document.getElementById("newBtn").onclick = showForm;
+document.getElementById("cancelBtn").onclick = hideForm;
+
+async function showForm() {
+  const meta = ENTITIES[current];
+
+  document.getElementById("formFields").innerHTML = meta.form.map(f =>
+    `<div class="form-row">
+        <label>${f.label}</label>
+        <input name="${f.name}" type="${f.type}">
+    </div>`
+  ).join("");
+
+  if (current === "viagens" || current === "avaliacoes") {
+    await populateSelects();
+  }
+
+  document.getElementById("tableWrap").classList.add("hidden");
+  document.getElementById("formWrap").classList.remove("hidden");
+}
+
+function hideForm() {
+  document.getElementById("formWrap").classList.add("hidden");
+  document.getElementById("tableWrap").classList.remove("hidden");
+}
+
+// SELECTS
+async function populateSelects() {
+  const form = document.getElementById("entityForm");
+
+  if (current === "avaliacoes") {
+    const [mot, pas] = await Promise.all([
+      fetch(`${API_URL}/motoristas`).then(r=>r.json()),
+      fetch(`${API_URL}/passageiros`).then(r=>r.json())
+    ]);
+
+    form.motoristaId.innerHTML = mot.map(x => `<option value="${x.id}">${x.nome}</option>`).join("");
+    form.passageiroId.innerHTML = pas.map(x => `<option value="${x.id}">${x.nome}</option>`).join("");
+  }
+
+  if (current === "viagens") {
+    const [mot, vei, rot, usu] = await Promise.all([
+      fetch(`${API_URL}/motoristas`).then(r=>r.json()),
+      fetch(`${API_URL}/veiculos`).then(r=>r.json()),
+      fetch(`${API_URL}/rotas`).then(r=>r.json()),
+      fetch(`${API_URL}/usuarios`).then(r=>r.json()),
+    ]);
+
+    form.motorista.innerHTML = mot.map(x => `<option value="${x.id}">${x.nome}</option>`).join("");
+    form.veiculo.innerHTML = vei.map(x => `<option value="${x.id}">${x.modelo}</option>`).join("");
+    form.rota.innerHTML = rot.map(x => `<option value="${x.id}">${x.origem} → ${x.destino}</option>`).join("");
+    form.usuario.innerHTML = usu.map(x => `<option value="${x.id}">${x.nome}</option>`).join("");
+  }
+}
+
+// SALVAR
+document.getElementById("entityForm").onsubmit = async (e) => {
+  e.preventDefault();
+
+  const meta = ENTITIES[current];
+  const form = new FormData(e.target);
+
+  const obj = {};
+  form.forEach((val,key)=> obj[key] = val);
+
+  if (current === "viagens") {
+    obj.motorista = { id: obj.motorista };
+    obj.veiculo = { id: obj.veiculo };
+    obj.rota = { id: obj.rota };
+    obj.usuario = { id: Number(obj.usuario) };
+  }
+
+  const res = await fetch(`${API_URL}/${meta.endpoint}`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(obj)
+  });
+
+  if (!res.ok) return alert("Erro ao salvar!");
+
+  alert("Salvo!");
+  hideForm();
+  loadEntity(current);
+};
+
+// EXCLUIR
+async function deleteEntity(id) {
+  if (!confirm("Excluir?")) return;
+
+  const meta = ENTITIES[current];
+
+  await fetch(`${API_URL}/${meta.endpoint}/${id}`, { method:"DELETE" });
+
+  loadEntity(current);
+}
+
+loadEntity("usuarios");
+</script>
+</body>
+</html>
