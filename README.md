@@ -66,7 +66,6 @@ transporte.sql
 
 ### **MongoDB**
 Utilizado para:
-- Logs
 - Avaliações de motoristas
 
 Script:
